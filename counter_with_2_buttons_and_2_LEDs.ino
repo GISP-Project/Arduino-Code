@@ -1,25 +1,31 @@
 #include <LiquidCrystal.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+String link_string ;
+const long interval = 30000;
+unsigned long previousMillis =0; 
 
 //pin buttons
-const int buttonUp = 13;
-const int buttonDown = 12;
+const int buttonUp = 18;
+const int buttonDown = 17;
 
 //pin LEDs
-const int redPin = 10;
-const int greenPin = 11;
+const int redPin = 26;
+const int greenPin = 25;
 
 //pin display LCD
-const int rs = 2;
-const int en = 7;
-const int d4 = 6;
-const int d5 = 5;
-const int d6 = 4;
-const int d7 = 3;
+const int rs = 19;
+const int en = 23;
+const int d4 = 5;
+const int d5 = 13;
+const int d6 = 12;
+const int d7 = 14;
 
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 int numPeople = 0;
-const int maxPeople = 5;
+const int maxPeople = 10;
 
 int buttonUpState = 0;
 int buttonUpPrevState = 0;
@@ -28,9 +34,25 @@ int buttonDownPrevState = 0;
 
 bool buttonPressed = false;
 
-void setup()
-{
-  Serial.begin(9600);
+
+//WiFi Settings
+const char* ssid="Wind3 HUB - A9A9AC";
+const char* password="3hgh5qaepsy5dgzx";
+//key API thingspeak
+String api_key="C8EOELR4TOE5HMUC";
+
+void setup(){
+  
+  Serial.begin(115200);
+//WiFi connection
+    WiFi.begin(ssid, password);
+    while(WiFi.status() !=WL_CONNECTED){
+      delay(1000);
+      Serial.println("Connecting to Wifi...");
+    }
+
+    Serial.println("connected to the wifi nework");
+//End WiFi connection
   
   pinMode(buttonUp, INPUT);
   pinMode(buttonDown, INPUT);
@@ -40,12 +62,12 @@ void setup()
   
   lcd.begin(16,2);
   lcd.setCursor(0,0); 
-  lcd.print("Num. persone: ");
-  lcd.setCursor(15,0);
+  lcd.print("Num.Persone:");
+  lcd.setCursor(14,0);
   lcd.print(numPeople);
   lcd.setCursor(0,1);
-  lcd.print("Max persone: ");
-  lcd.setCursor(15,1);
+  lcd.print("Max.Persone:");
+  lcd.setCursor(14,1);
   lcd.print(maxPeople);
   
 }
@@ -54,7 +76,7 @@ void loop(){
   
   if(numPeople<maxPeople){
     digitalWrite(greenPin,HIGH);
-  	digitalWrite(redPin, LOW);
+    digitalWrite(redPin, LOW);
   }
   
   if(numPeople==maxPeople){
@@ -67,21 +89,49 @@ void loop(){
    if(buttonUpState != buttonUpPrevState){
     if(buttonUpState == HIGH){ //HIGH
       buttonPressed = true;
-      if(numPeople<maxPeople)numPeople++;
+      if(numPeople<maxPeople){
+        numPeople++;
+            if((WiFi.status()==WL_CONNECTED)){
+                HTTPClient http;
+                link_string = String("https://api.thingspeak.com/update?api_key="+String(api_key)+"&field1="+numPeople); 
+                http.begin(link_string);
+                int httpCode = http.GET();
+                if(httpCode > 0){
+                  String payload = http.getString();
+              }else {
+            Serial.println("Error on HTTP request");
+            }
+          }
+        }
       }
-    delay(250);
-  	}
+      
+    delay(25);
+    }
    buttonUpPrevState = buttonUpState;
+   
    
   
   //checkDown()
    buttonDownState = digitalRead(buttonDown);
    if(buttonDownState != buttonDownPrevState){
      if(buttonDownState == HIGH){ 
-      	buttonPressed = true;
-       	if(numPeople > 0) numPeople--;
+        buttonPressed = true;
+        if(numPeople > 0){
+          numPeople--;
+           if((WiFi.status()==WL_CONNECTED)){
+                HTTPClient http;
+                link_string = String("https://api.thingspeak.com/update?api_key="+String(api_key)+"&field1="+numPeople);
+                http.begin(link_string);
+                int httpCode = http.GET();
+                if(httpCode > 0){
+                  String payload = http.getString();
+              }else {
+            Serial.println("Error on HTTP request");
+            }
+          }
+        }
      }
-    delay(250);
+    delay(25);
    }
     buttonDownPrevState = buttonDownState;
   
@@ -91,6 +141,24 @@ void loop(){
     buttonPressed = false;
   }
   
+ unsigned long currentMillis = millis();
+   
+  if (currentMillis - previousMillis >= interval) {
+    // registra ultimo momento
+    previousMillis = currentMillis;
+    
+  if((WiFi.status()==WL_CONNECTED)){
+    HTTPClient http;
+    link_string = String("https://api.thingspeak.com/update?api_key="+String(api_key)+"&field1="+numPeople);
+    http.begin(link_string);
+    int httpCode = http.GET();
+    if(httpCode > 0){
+      String payload = http.getString();
+      }else {
+        Serial.println("Error on HTTP request");
+        }
+    }
+  }
+ 
 }
-
             
